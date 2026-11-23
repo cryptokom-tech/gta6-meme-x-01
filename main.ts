@@ -13,15 +13,30 @@
 // Run it the way the grader does (from the repository root):
 //   mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const botDir = process.env.MAKEFUN_BOT_DIR ?? "/bot";
 const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
 
+// Validate POST.json before copying: the gate reads the copied file, so a
+// malformed address file must fail loudly here instead of passing silently.
+const postPath = join(botDir, "POST.json");
+let post: unknown;
+try {
+  post = JSON.parse(readFileSync(postPath, "utf8"));
+} catch (err) {
+  console.error(`POST.json could not be read from ${botDir}: ${(err as Error).message}`);
+  process.exit(1);
+}
+if (typeof post !== "object" || post === null || typeof (post as { url?: unknown }).url !== "string" || !(post as { url: string }).url) {
+  console.error(`POST.json in ${botDir} must name the post address as a "url" string`);
+  process.exit(1);
+}
+
 mkdirSync(outputDir, { recursive: true });
 try {
-  copyFileSync(join(botDir, "POST.json"), join(outputDir, "POST.json"));
+  copyFileSync(postPath, join(outputDir, "POST.json"));
 } catch (err) {
   console.error(`POST.json could not be copied from ${botDir}: ${(err as Error).message}`);
   process.exit(1);
